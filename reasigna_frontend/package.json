@@ -1,0 +1,69 @@
+{
+  "name": "reasigna_web",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": "/reasigna/",
+  "dependencies": {
+    "@emotion/cache": "^11.5.0",
+    "@emotion/react": "^11.5.0",
+    "@emotion/server": "^11.4.0",
+    "@emotion/styled": "^11.10.4",
+    "@mui/icons-material": "^5.10.6",
+    "@mui/lab": "^5.0.0-alpha.100",
+    "@mui/material": "^5.0.6",
+    "@mui/styles": "^5.0.2",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^0.27.2",
+    "chart.js": "^3.5.1",
+    "date-fns": "^2.25.0",
+    "formik": "^2.2.9",
+    "i18next": "^23.2.0",
+    "leaflet": "^1.8.0",
+    "leaflet-defaulticon-compatibility": "^0.1.1",
+    "leaflet.markercluster": "^1.5.3",
+    "next": "^12.3.1",
+    "react": "^17.0.2",
+    "react-chartjs-2": "^3.0.4",
+    "react-dom": "^17.0.2",
+    "react-i18next": "^13.0.0",
+    "react-languages-select": "^1.0.20",
+    "react-leaflet": "^3.2.5",
+    "react-leaflet-markercluster": "^3.0.0-rc1",
+    "react-password-checklist": "^1.4.3",
+    "react-password-strength-bar": "^0.4.1",
+    "react-perfect-scrollbar": "^1.5.8",
+    "react-router-dom": "^6.3.0",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4",
+    "yup": "^0.32.11"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@welldone-software/why-did-you-render": "^7.0.1"
+  }
+}

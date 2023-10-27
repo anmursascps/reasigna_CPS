@@ -1,0 +1,23 @@
+{
+    "key": "¡Este es un día maravilloso!",
+    "nested": {
+      "key": "¿Cómo estás?"
+    },
+    "interpolated": "Que tenga un lindo día, {{name}}!",
+    "pluralKey_one": "Este es un buen ejemplo.",
+    "pluralKey_many": "Estos son buenos ejemplos.",
+    "pluralKey_other": "Estos son buenos ejemplos.",
+    "Usuarios": "Usuarios",
+    "Expedientes": "Expedientes",
+    "Asistencias": "Asistencias",
+    "Logout": "CERRAR SESIÓN",
+    "tipo": "TIPO",
+    "AÑO": "AÑO",
+    "CÓDIGO": "CÓDIGO",
+    "EXPEDIENTE": "EXPEDIENTE",
+    "TITULAR":"TITULAR",
+    "ASUNTO": "ASUNTO",
+    "FENTRADA": "F. ENTRADA",
+    "TÉCNICO": "TÉCNICO",
+    "FSALIDA": "F. SALIDA"
+  }

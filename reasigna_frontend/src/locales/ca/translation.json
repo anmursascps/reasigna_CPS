@@ -1,0 +1,23 @@
+{
+    "key": "Aquest és un dia meravellós!",
+    "nested": {
+      "key": "Com estàs?"
+    },
+    "interpolated": "Que tinguis un bon dia, {{name}}!",
+    "pluralKey_one": "Aquest és un bon exemple.",
+    "pluralKey_other": "Aquests són bons exemples.",
+    "Usuarios": "Usuaris",
+    "Expedientes": "Expedients",
+    "Asistencias": "Assistències",
+    "Logout": "TANCA LA SESSIÓ",
+    "tipo": "TIPUS",
+    "AÑO": "ANY",
+    "CÓDIGO": "CODI",
+    "EXPEDIENTE": "EXPEDIENT",
+    "TITULAR":"TITULAR",
+    "ASUNTO": "ASSUMPTE",
+    "FENTRADA": "DATA D'ENTRADA",
+    "TÉCNICO": "TÈCNIC",
+    "FSALIDA": "DATA DE SORTIDA"
+  
+  }

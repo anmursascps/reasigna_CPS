@@ -2,7 +2,6 @@ package com.project.reasigna.controllers;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -90,7 +89,6 @@ public class RoutesController {
                     System.out.println(lines[i]);
                     String[] values = lines[i].split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
 
-                    String route_id = values[headerIndices.get("route_id")];
                     String route_short_name = values[headerIndices.get("route_short_name")];
                     String route_type = values[headerIndices.get("route_type")];
                     Routes route = new Routes();
