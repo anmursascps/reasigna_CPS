@@ -1,5 +1,8 @@
 package com.project.reasigna.models;
 
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
@@ -22,19 +25,26 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "trips", indexes = { @Index(name = "gtfs_id_trips_index", columnList = "gtfs_id") })
+@Table(name = "trips", indexes = { 
+    @Index(name = "gtfs_id_trips_index", columnList = "gtfs_id"),
+    @Index(name = "route_id_trips_index", columnList = "route_id"),
+    @Index(name = "service_id_trips_index", columnList = "service_id"),
+    @Index(name = "shape_id_trips_index", columnList = "shape_id")
+})
 public class Trips {
     @Id
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne()
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "route_id", nullable = true)
     @JsonIgnore
     private Routes routes;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne()
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "service_id", nullable = true)
     private Calendar calendar;
 
@@ -44,12 +54,14 @@ public class Trips {
     @Column(name = "trip_headsign", nullable = true)
     private String tripHeadsign;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne()
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "shape_id", nullable = true)
     @JsonIgnore
     private Shapes shapes;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne()
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "gtfs_id", nullable = true)
     @JsonIgnore
     private Gtfs gtfs;

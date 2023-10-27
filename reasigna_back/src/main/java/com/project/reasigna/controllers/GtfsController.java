@@ -392,7 +392,7 @@ public class GtfsController {
         List<Agency> agencies = agencyRepository.findByGtfs(gtfs);
         System.out.println(agencies.size() + " agencies found");
 
-        int batchSize = 1000;
+        int batchSize = 100000;
 
         for (int i = 0; i < stopTimes.size(); i += batchSize) {
             List<StopTimes> batch = stopTimes.subList(i, Math.min(i + batchSize, stopTimes.size()));
@@ -404,13 +404,6 @@ public class GtfsController {
             List<Stops> batch = stops.subList(i, Math.min(i + batchSize, stops.size()));
             stopsRepository.deleteAll(batch);
             System.out.println(batch.size() + " stops deleted");
-        }
-
-        for (int i = 0; i < trips.size(); i += batchSize) {
-            List<Trips> batch = trips.subList(i, Math.min(i + batchSize, trips.size()));
-            tripsRepository.deleteAll(batch);
-            // tripsRepository.deleteBy
-            System.out.println(batch.size() + " trips deleted");
         }
 
         for (int i = 0; i < shapes.size(); i += batchSize) {
@@ -441,6 +434,13 @@ public class GtfsController {
             List<Agency> batch = agencies.subList(i, Math.min(i + batchSize, agencies.size()));
             agencyRepository.deleteAll(batch);
             System.out.println(batch.size() + " agencies deleted");
+        }
+
+        for (int i = 0; i < trips.size(); i += batchSize) {
+            List<Trips> batch = trips.subList(i, Math.min(i + batchSize, trips.size()));
+            tripsRepository.deleteAll(batch);
+            // tripsRepository.deleteBy
+            System.out.println(batch.size() + " trips deleted");
         }
 
         gtfsRepository.delete(gtfs);
@@ -761,10 +761,8 @@ public class GtfsController {
                 Map<String, Calendar> calendarMap = new HashMap<>();
                 calendarRepository.findByGtfs(g)
                         .forEach(calendar -> calendarMap.put(calendar.getServiceId(), calendar));
-                System.out.println(calendarMap.size());
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    // System.out.println(line);
                     String[] values = line.split(splitter);
                     for (int i = 0; i < values.length; i++) {
                         values[i] = values[i].trim();
@@ -822,8 +820,6 @@ public class GtfsController {
                 while ((line = reader.readLine()) != null) {
                     try {
                         String[] values = line.split(splitter);
-                        // show the values
-                        System.out.println(Arrays.toString(values));
 
                         // Trim the values
                         for (int i = 0; i < values.length; i++) {
