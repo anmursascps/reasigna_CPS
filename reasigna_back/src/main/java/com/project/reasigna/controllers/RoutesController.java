@@ -36,7 +36,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/routes")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class RoutesController {
 
     @Autowired

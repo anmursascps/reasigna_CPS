@@ -29,7 +29,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
     @Index(name = "stop_times_id_index", columnList = "stop_id"),
     @Index(name = "gtfs_id_stop_times_index", columnList = "gtfs_id"),
     @Index(name = "trip_id_stop_times_index", columnList = "trip_id"),
-    @Index(name = "stops_id_stop_times_index", columnList = "stop_id"),
     @Index(name = "gtfs_id_stop_times_index", columnList = "gtfs_id")
 })
 public class StopTimes {

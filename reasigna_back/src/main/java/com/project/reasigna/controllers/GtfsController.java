@@ -25,6 +25,7 @@ import java.util.zip.ZipInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -358,10 +359,14 @@ public class GtfsController {
         }
     }
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> deleteGtfs(@PathVariable Long id) {
         System.out.println("Deleting gtfs");
         System.out.println(id);
+        long startTime = System.currentTimeMillis(); // get start time
 
         Gtfs gtfs = gtfsRepository.findById(id).orElse(null);
         if (gtfs == null) {
@@ -392,58 +397,76 @@ public class GtfsController {
         List<Agency> agencies = agencyRepository.findByGtfs(gtfs);
         System.out.println(agencies.size() + " agencies found");
 
-        int batchSize = 100000;
+        int batchSize = 250000;
 
         for (int i = 0; i < stopTimes.size(); i += batchSize) {
             List<StopTimes> batch = stopTimes.subList(i, Math.min(i + batchSize, stopTimes.size()));
-            stopTimesRepository.deleteAll(batch);
+            String sql = "DELETE FROM stop_times WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " stopTimes deleted");
         }
 
         for (int i = 0; i < stops.size(); i += batchSize) {
             List<Stops> batch = stops.subList(i, Math.min(i + batchSize, stops.size()));
-            stopsRepository.deleteAll(batch);
+            String sql = "DELETE FROM stops WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " stops deleted");
         }
 
         for (int i = 0; i < shapes.size(); i += batchSize) {
             List<Shapes> batch = shapes.subList(i, Math.min(i + batchSize, shapes.size()));
-            shapesRepository.deleteAll(batch);
+            String sql = "DELETE FROM shapes WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " shapes deleted");
         }
 
         for (int i = 0; i < calendarDates.size(); i += batchSize) {
             List<CalendarDates> batch = calendarDates.subList(i, Math.min(i + batchSize, calendarDates.size()));
-            calendarDatesRepository.deleteAll(batch);
+            String sql = "DELETE FROM calendar_dates WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " calendarDates deleted");
         }
 
         for (int i = 0; i < calendars.size(); i += batchSize) {
             List<Calendar> batch = calendars.subList(i, Math.min(i + batchSize, calendars.size()));
-            calendarRepository.deleteAll(batch);
+            String sql = "DELETE FROM calendar WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " calendars deleted");
         }
 
         for (int i = 0; i < routes.size(); i += batchSize) {
             List<Routes> batch = routes.subList(i, Math.min(i + batchSize, routes.size()));
-            routesRepository.deleteAll(batch);
+            String sql = "DELETE FROM routes WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " routes deleted");
         }
 
         for (int i = 0; i < agencies.size(); i += batchSize) {
             List<Agency> batch = agencies.subList(i, Math.min(i + batchSize, agencies.size()));
-            agencyRepository.deleteAll(batch);
+            String sql = "DELETE FROM agency WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " agencies deleted");
         }
 
         for (int i = 0; i < trips.size(); i += batchSize) {
             List<Trips> batch = trips.subList(i, Math.min(i + batchSize, trips.size()));
-            tripsRepository.deleteAll(batch);
-            // tripsRepository.deleteBy
+            String sql = "DELETE FROM trips WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
             System.out.println(batch.size() + " trips deleted");
         }
 
         gtfsRepository.delete(gtfs);
+        long endTime = System.currentTimeMillis(); // get end time
+        long duration = endTime - startTime; // calculate duration
+        System.out.println("Deleting GTFS took " + duration + " milliseconds to execute");
 
         return new ResponseEntity<>("Gtfs deleted", HttpStatus.OK);
     }
@@ -799,6 +822,7 @@ public class GtfsController {
 
     public void processStopTimes(InputStream stopTimesStream, Gtfs g) throws IOException, ParseException {
         String[] required_columns = { "trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence" };
+        int batchSize = 5000; // set the batch size to 25,000
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(stopTimesStream))) {
             String[] header = reader.readLine().split(splitter);
@@ -808,7 +832,8 @@ public class GtfsController {
                 header[i] = header[i].trim();
                 columnMap.put(header[i], i);
             }
-            List<StopTimes> stopTimesList = new LinkedList<>();
+            List<Object[]> stopTimesList = new LinkedList<>();
+            int counter = 0; // initialize the counter to 0
             if (Utils.isValid(header, required_columns)) {
                 // Load all related objects into memory
                 Map<String, Trips> tripsMap = new HashMap<>();
@@ -830,8 +855,6 @@ public class GtfsController {
                         Stops s = stopsMap.get(values[columnMap.get("stop_id")]);
 
                         // Create a Shapes object and set its properties
-                        StopTimes stopTimes = new StopTimes();
-
                         // Arrival time and departure time comes like this (10:45:00) and my database
                         DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
                         java.util.Date arrival_timeUtil = dateFormat
@@ -841,25 +864,32 @@ public class GtfsController {
                                 .parse(values[Arrays.asList(header).indexOf("departure_time")]);
                         java.sql.Time departure_time = new java.sql.Time(departure_timeUtil.getTime());
 
-                        stopTimes.setArrival_time(arrival_time);
-                        stopTimes.setDeparture_time(departure_time);
-                        stopTimes.setStops(s);
-                        stopTimes.setTrips(t);
-                        stopTimes
-                                .setStop_sequence(
-                                        Integer.parseInt(values[Arrays.asList(header).indexOf("stop_sequence")]));
-                        stopTimes.setGtfs(g);
+                        Object[] stopTimes = new Object[] { arrival_time, departure_time, s.getId(), t.getId(),
+                                Integer.parseInt(values[Arrays.asList(header).indexOf("stop_sequence")]), g.getId() };
                         stopTimesList.add(stopTimes);
+                        counter++; // increment the counter
+                        if (counter == batchSize) { // if the counter reaches the batch size
+                            // System.out.println("Saving stop_times...");
+                            String sql = "INSERT INTO stop_times (arrival_time, departure_time, stop_id, trip_id, stop_sequence, gtfs_id) VALUES (?, ?, ?, ?, ?, ?)";
+                            jdbcTemplate.batchUpdate(sql, stopTimesList); // save the list of StopTimes objects
+                            // System.out.println(stopTimesList.size() + " stop_times saved");
+                            // System.out.println("==============");
+                            stopTimesList.clear(); // clear the list
+                            counter = 0; // reset the counter
+                        }
                     } catch (Exception e) {
                         // Catch any exceptions and continue to the next iteration
                         System.out.println("Error processing stop_times: " + e.getMessage());
                         continue;
                     }
                 }
-                System.out.println("Saving stop_times...");
-                stopTimesRepository.saveAll(stopTimesList);
-                System.out.println(stopTimesList.size() + " stop_times saved");
-                System.out.println("==============");
+                if (!stopTimesList.isEmpty()) { // if there are any remaining StopTimes objects in the list
+                    System.out.println("Saving stop_times...");
+                    String sql = "INSERT INTO stop_times (arrival_time, departure_time, stop_id, trip_id, stop_sequence, gtfs_id) VALUES (?, ?, ?, ?, ?, ?)";
+                    jdbcTemplate.batchUpdate(sql, stopTimesList); // save the remaining list of StopTimes objects
+                    System.out.println(stopTimesList.size() + " stop_times saved");
+                    System.out.println("==============");
+                }
             }
         }
     }

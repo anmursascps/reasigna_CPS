@@ -98,11 +98,34 @@ const Route_Details = () => {
 
     const [selectedTrip, setSelectedTrip] = useState(null);
 
-    const handleTripClick = (index) => {
+    const handleTripClick = (index, trip) => {
         if (selectedTrip === index) {
             setSelectedTrip(null);
+            // remove all markers from the map
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
         } else {
             setSelectedTrip(index);
+            // remove all markers from the map
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+            // iterate over trip.stopTimes and add the markers to the map
+            trip.stopTimes.forEach((stopTime) => {
+                const marker = L.marker([
+                    stopTime.stop.stop_lat,
+                    stopTime.stop.stop_lon,
+                ]).addTo(map);
+                marker.bindPopup(
+                    `${stopTime.stop.stop_name}<br>${stopTime.stopTime.arrival_time}<br>${stopTime.stopTime.departure_time}`
+                );
+            });
         }
     };
 
@@ -160,7 +183,7 @@ const Route_Details = () => {
                                             <React.Fragment key={trip.id}>
                                                 <TableRow
                                                     hover
-                                                    onClick={() => handleTripClick(index)}
+                                                    onClick={() => handleTripClick(index, trip)}
                                                 >
                                                     <TableCell>{trip.trip.id}</TableCell>
                                                     <TableCell>{trip.trip.tripId}</TableCell>

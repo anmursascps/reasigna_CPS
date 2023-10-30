@@ -54,7 +54,7 @@ const Gtfs_Details = () => {
 
                         </Box>
 
-                        <Typography sx={{ m: 1 }} variant="h4">
+                        {/* <Typography sx={{ m: 1 }} variant="h4">
                             Agencias
                         </Typography>
 
@@ -93,7 +93,7 @@ const Gtfs_Details = () => {
                                 </Table>
                             </TableContainer>
 
-                        </Paper>
+                        </Paper> */}
                         <Typography sx={{ m: 1 }} variant="h4">
                             Rutas
                         </Typography>
