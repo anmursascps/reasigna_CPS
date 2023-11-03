@@ -14,7 +14,6 @@ class project_service {
     }
 
     deleteProject(projectId) {
-        console.log(projectId)
         return axios.delete(API_URL + "api/project/delete/" + projectId);
     }
 

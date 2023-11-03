@@ -5,7 +5,6 @@ import Upload from "./components/pages/upload";
 import Project from "./components/pages/project";
 import Gtfs from "./components/pages/gtfs";
 import GtfsDetails from "./components/pages/gtfs_detail";
-import TripDetails from "./components/pages/trip_detail";
 import RouteDetails from "./components/pages/route_details";
 
 function App() {
@@ -17,7 +16,6 @@ function App() {
           <Route path="/proyectos" element={<Project />}></Route>
           <Route path="/proyectos/:id" element={<Gtfs />}></Route>
           <Route path="/gtfs/:id" element={<GtfsDetails />}></Route>
-          <Route path="/gtfs/:id/trip/:trip_id" element={<TripDetails />}></Route>
           <Route path="/gtfs/:id/route/:route_id" element={<RouteDetails />}></Route>
           <Route path="/proyectos/:id/gtfs" element={<Upload />}></Route>
           <Route path="/upload" element={<Upload />}></Route>

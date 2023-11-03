@@ -57,7 +57,6 @@ public class Trips {
     @ManyToOne()
     @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "shape_id", nullable = true)
-    @JsonIgnore
     private Shapes shapes;
 
     @ManyToOne()
@@ -65,5 +64,8 @@ public class Trips {
     @JoinColumn(name = "gtfs_id", nullable = true)
     @JsonIgnore
     private Gtfs gtfs;
+
+    @Column(name = "direction_id", nullable = true)
+    private String directionId;
 
 }

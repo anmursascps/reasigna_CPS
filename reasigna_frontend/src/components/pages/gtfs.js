@@ -59,7 +59,6 @@ const Gtfs = () => {
                 "id": parseInt(id)
             }
         }
-        console.log(gtfs)
         gtfs_service.createGtfs(gtfs).then((response) => {
             gtfs_service.getGtfsByProjectId(id).then((response) => {
                 setGtfs(response.data)
@@ -76,7 +75,6 @@ const Gtfs = () => {
     useEffect(() => {
         gtfs_service.getGtfsByProjectId(id).then((response) => {
             setGtfs(response.data)
-            console.log(response.data)
 
         }, error => {
             console.log(error)

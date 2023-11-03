@@ -43,6 +43,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 
 import com.project.reasigna.models.*;
+import com.project.reasigna.models.Frequencies;
 import com.project.reasigna.repository.*;
 import com.project.reasigna.utils.Utils;
 
@@ -50,6 +51,9 @@ import com.project.reasigna.utils.Utils;
 @RequestMapping("/api/upload")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class GtfsController {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private GtfsRepository gtfsRepository;
@@ -80,6 +84,9 @@ public class GtfsController {
 
     @Autowired
     private StopTimesRepository stopTimesRepository;
+
+    @Autowired
+    private FrequenciesRepository frequenciesRepository;
 
     public DateFormat format = new SimpleDateFormat("yyyyMMdd");
     public String splitter = ",(?=(?:[^\\\"]*\\\"[^\\\"]*\\\")*[^\\\"]*$)";
@@ -256,6 +263,9 @@ public class GtfsController {
             processRoutes(fileStreams.get("routes.txt"), gtfs);
             processStops(fileStreams.get("stops.txt"), gtfs);
             processTrips(fileStreams.get("trips.txt"), gtfs);
+            if (fileStreams.containsKey("frequencies.txt")) {
+                processFrequencies(fileStreams.get("frequencies.txt"), gtfs);
+            }
             processStopTimes(fileStreams.get("stop_times.txt"), gtfs);
 
             System.out.println("Done processing zip file");
@@ -322,6 +332,7 @@ public class GtfsController {
         response.put("gtfs", gtfs);
         response.put("agencies", agencies);
         response.put("routes", routes);
+        response.put("geojson", shapesRepository.retrieveGeoJsonByGtfsId(id));
 
         // response.put("stops", stops);
         // response.put("calendars", calendars);
@@ -359,9 +370,6 @@ public class GtfsController {
         }
     }
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> deleteGtfs(@PathVariable Long id) {
         System.out.println("Deleting gtfs");
@@ -396,6 +404,9 @@ public class GtfsController {
 
         List<Agency> agencies = agencyRepository.findByGtfs(gtfs);
         System.out.println(agencies.size() + " agencies found");
+
+        List<Frequencies> frequencies = frequenciesRepository.findByGtfs(gtfs);
+        System.out.println(frequencies.size() + " frequencies found");
 
         int batchSize = 250000;
 
@@ -453,6 +464,14 @@ public class GtfsController {
                     + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
             jdbcTemplate.update(sql);
             System.out.println(batch.size() + " agencies deleted");
+        }
+
+        for (int i = 0; i < frequencies.size(); i += batchSize) {
+            List<Frequencies> batch = frequencies.subList(i, Math.min(i + batchSize, frequencies.size()));
+            String sql = "DELETE FROM frequencies WHERE id IN ("
+                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
+            jdbcTemplate.update(sql);
+            System.out.println(batch.size() + " frequencies deleted");
         }
 
         for (int i = 0; i < trips.size(); i += batchSize) {
@@ -651,7 +670,14 @@ public class GtfsController {
                             : agencyRepository.findByAgencyIdAndGtfs(agency_id, g.getId());
 
                     Routes route = new Routes();
-                    route.setAgency_id(agency.getAgency_id());
+                    try {
+                        route.setAgency_id(agency.getAgency_id());
+                        
+                    } catch (Exception e) {
+                        if (agencyRepository.findByGtfs(g).size() == 1) {
+                            route.setAgency_id(agencyRepository.findByGtfs(g).get(0).getAgency_id());
+                        }
+                    }
                     route.setAgency(agency);
                     route.setRouteId(values[Arrays.asList(header).indexOf("route_id")]);
                     route.setRoute_short_name(values[Arrays.asList(header).indexOf("route_short_name")]);
@@ -794,6 +820,7 @@ public class GtfsController {
                     trips.setTripId(values[Arrays.asList(header).indexOf("trip_id")]);
                     Routes r = routesMap.get(values[columnMap.get("route_id")]);
                     Calendar c = calendarMap.get(values[columnMap.get("service_id")]);
+
                     try {
                         Shapes s = shapesRepository
                                 .findByshapeIdAndGtfs(values[Arrays.asList(header).indexOf("shape_id")], g);
@@ -804,6 +831,10 @@ public class GtfsController {
                     // Check if has trip_headsign and set it
                     if (Arrays.asList(header).contains("trip_headsign")) {
                         trips.setTripHeadsign(values[Arrays.asList(header).indexOf("trip_headsign")]);
+                    }
+                    // Check if has direction_id and set it
+                    if (Arrays.asList(header).contains("direction_id")) {
+                        trips.setDirectionId(values[Arrays.asList(header).indexOf("direction_id")]);
                     }
                     trips.setRoutes(r);
                     trips.setCalendar(c);
@@ -878,9 +909,7 @@ public class GtfsController {
                             counter = 0; // reset the counter
                         }
                     } catch (Exception e) {
-                        // Catch any exceptions and continue to the next iteration
-                        System.out.println("Error processing stop_times: " + e.getMessage());
-                        continue;
+                        // System.out.println(e.getMessage());
                     }
                 }
                 if (!stopTimesList.isEmpty()) { // if there are any remaining StopTimes objects in the list
@@ -894,4 +923,45 @@ public class GtfsController {
         }
     }
 
+    public void processFrequencies(InputStream frequenciesStream, Gtfs g) throws IOException, ParseException {
+        String[] required_columns = { "trip_id", "start_time", "end_time", "headway_secs" };
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(frequenciesStream))) {
+            String[] header = reader.readLine().split(splitter);
+            Map<String, Integer> columnMap = new HashMap<>();
+            for (int i = 0; i < header.length; i++) {
+                header[i] = removeUTF8BOM(header[i]);
+                header[i] = header[i].trim();
+                columnMap.put(header[i], i);
+            }
+
+            List<Frequencies> frequenciesList = new ArrayList<>();
+            if (Utils.isValid(header, required_columns)) {
+                Map<String, Trips> tripsMap = new HashMap<>();
+                tripsRepository.findByGtfs(g).forEach(trips -> tripsMap.put(trips.getTripId(), trips));
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] values = line.split(splitter);
+                    for (int i = 0; i < values.length; i++) {
+                        values[i] = values[i].trim();
+                    }
+                    Frequencies frequencies = new Frequencies();
+                    frequencies.setTripId(values[Arrays.asList(header).indexOf("trip_id")]);
+                    frequencies.setStartTime(values[Arrays.asList(header).indexOf("start_time")]);
+                    frequencies.setEndTime(values[Arrays.asList(header).indexOf("end_time")]);
+                    frequencies
+                            .setHeadwaySecs(Integer.parseInt(values[Arrays.asList(header).indexOf("headway_secs")]));
+                    frequencies.setGtfs(g);
+                    frequencies.setTrips(tripsMap.get(values[Arrays.asList(header).indexOf("trip_id")]));
+                    frequenciesList.add(frequencies);
+                }
+                System.out.println("Saving frequencies...");
+                frequenciesRepository.saveAll(frequenciesList);
+                System.out.println(frequenciesList.size() + " frequencies saved");
+                System.out.println("==============");
+            }
+
+        }
+    }
 }

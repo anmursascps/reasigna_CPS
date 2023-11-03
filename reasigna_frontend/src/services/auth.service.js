@@ -35,7 +35,6 @@ const isAdmin = () => {
 };
 
 const updateUser = (id, user) => {
-  console.log(user);
   return axios.put(API_URL + "edit/" + id, user, { headers: authHeader() });
 };
 

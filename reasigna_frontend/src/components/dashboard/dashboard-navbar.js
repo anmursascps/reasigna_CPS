@@ -4,7 +4,6 @@ import {
   AppBar,
   Avatar,
   Box,
-  Button,
   IconButton,
   Toolbar,
   Tooltip,
@@ -13,9 +12,6 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import { UserCircle as UserCircleIcon } from "../../icons/user-circle";
 import AuthService from "../../services/auth.service";
-import { useNavigate } from "react-router-dom";
-import LanguageSelector from "../LanguageSelector";
-import { useTranslation } from "react-i18next";
 
 const DashboardNavbarRoot = styled(AppBar)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
@@ -25,8 +21,6 @@ const DashboardNavbarRoot = styled(AppBar)(({ theme }) => ({
 export const DashboardNavbar = (props) => {
   const { onSidebarOpen, ...other } = props;
   const user = AuthService.getCurrentUser();
-  const navigate = useNavigate();
-  const { t } = useTranslation();
 
   return (
     <>

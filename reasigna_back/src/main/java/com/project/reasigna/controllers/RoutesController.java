@@ -16,12 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.project.reasigna.models.Agency;
+import com.project.reasigna.models.Frequencies;
 import com.project.reasigna.models.Gtfs;
 import com.project.reasigna.models.Routes;
 import com.project.reasigna.models.StopTimes;
 import com.project.reasigna.models.Stops;
 import com.project.reasigna.models.Trips;
 import com.project.reasigna.repository.AgencyRepository;
+import com.project.reasigna.repository.FrequenciesRepository;
 import com.project.reasigna.repository.GtfsRepository;
 import com.project.reasigna.repository.RoutesRepository;
 import com.project.reasigna.repository.StopTimesRepository;
@@ -56,6 +58,9 @@ public class RoutesController {
 
     @Autowired
     private GtfsRepository gtfsRepository;
+
+    @Autowired
+    private FrequenciesRepository frequenciesRepository;
 
     @PostMapping("/upload")
     public String uploadRoutes(@RequestParam("file") MultipartFile file) throws IOException {
@@ -127,6 +132,12 @@ public class RoutesController {
         for (Trips trip : trips) {
             Map<String, Object> tripWithStops = new HashMap<>();
             tripWithStops.put("trip", trip);
+
+            // Get the frequencies associated with the trip
+            List<Frequencies> frequencies = frequenciesRepository.findByTrips(trip);
+
+            // Add the frequencies to the trip
+            tripWithStops.put("frequencies", frequencies);
 
             List<StopTimes> stopTimes = stopTimesRepository.findByTrips(trip);
             List<Map<String, Object>> stopTimesWithStops = new ArrayList<>();

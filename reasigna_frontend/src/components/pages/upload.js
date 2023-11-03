@@ -3,7 +3,6 @@ import { DashboardLayout } from "../dashboard/dashboard-layout";
 import React, { useEffect, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import { useNavigate, useParams } from "react-router-dom";
-import routes_service from "../../services/routes_service";
 import gtfs_service from "../../services/gtfs_service";
 
 const Upload = () => {
@@ -14,16 +13,14 @@ const Upload = () => {
   const [selectedFiles, setSelectedFiles] = useState(undefined);
   const [message, setMessage] = useState([]);
   const [summary, setSummary] = useState([]);
-  const [fileName, setFileName] = useState("");
   const [loadingGtfs, setLoadingGtfs] = useState(false);
-  const [valid, setValid] = useState(false);
+  const [valid, setValid] = useState(true);
   const [name, setName] = useState("");
   const [open, setOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const selectFile = (event) => {
     setSelectedFiles(event.target.files);
-    setFileName(event.target.files[0].name);
   };
 
   const upload = () => {
@@ -58,7 +55,7 @@ const Upload = () => {
     setLoadingGtfs(true);
     setOpen(false);
     let currentFile = selectedFiles[0];
-    // setSelectedFiles(undefined);
+    setSelectedFiles(undefined);
     console.log(id)
     gtfs_service.saveOnDatabase(currentFile, name, id).then((response) => {
       setLoadingGtfs(false);
@@ -258,7 +255,7 @@ const Upload = () => {
             </Button>
             <Button
               className="btn btn-success"
-              // disabled={!valid}
+              disabled={!valid}
               sx={{ m: 1 }}
               onClick={() => setOpen(true)}
             >Guradar GTFS en base de datos</Button>

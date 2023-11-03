@@ -21,4 +21,8 @@ public interface ShapesRepository extends JpaRepository<Shapes, Long> {
     @Query(value = "SELECT jsonb_build_object('type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)\\:\\:json))\\:\\:text FROM (SELECT * FROM shapes WHERE shape_id=?1 AND gtfs_id=?2) as t", nativeQuery = true)
     String retrieveGeoJsonByIdString(String shape_id, Long gtfs_id);
 
+    // generate geojson from shapes table by gtfs_id
+    @Query(value = "SELECT jsonb_build_object('type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)\\:\\:json))\\:\\:text FROM (SELECT * FROM shapes WHERE gtfs_id=?1) as t", nativeQuery = true)
+    String retrieveGeoJsonByGtfsId(Long gtfs_id);
+
 }

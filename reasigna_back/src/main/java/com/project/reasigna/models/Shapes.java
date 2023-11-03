@@ -47,7 +47,7 @@ public class Shapes {
     private int shape_pt_sequence;
 
     @Column(name = "linestring")
-    // @JsonIgnore
+    @JsonIgnore
     private LineString linestring;
 
     @ManyToOne(cascade = CascadeType.DETACH)

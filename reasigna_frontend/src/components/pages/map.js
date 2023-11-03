@@ -137,8 +137,6 @@ const Map = () => {
     ValueServices.getTest(json)
       .then((response) => {
         const data = JSON.parse(JSON.stringify(response.data));
-        console.log(response.data);
-        console.log(data);
         setContenidors(data);
       })
       .catch((error) => {

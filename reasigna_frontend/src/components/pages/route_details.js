@@ -9,9 +9,6 @@ import {
     GeoJSON,
     MapContainer,
     TileLayer,
-    FeatureGroup,
-    Marker,
-    Popup,
 } from "react-leaflet";
 
 import * as L from "leaflet";
@@ -26,25 +23,24 @@ const Route_Details = () => {
 
     const [loading, setLoading] = useState(false)
     const [shapes, setShapes] = useState([])
+    const [trip_clicked, setTrip_clicked] = useState(false)
+
+    const [selectedTrip, setSelectedTrip] = useState(null);
 
     const mkRef = useRef();
 
+    const divMapaRef = useRef();
+    const [map, setMap] = useState("");
+    const [geojsonKey, setgeojsonKey] = useState("");
 
     const handleClose = () => {
         setLoading(false)
     }
 
-
-
-
-
-
     useEffect(() => {
         setLoading(true)
-        routes_service.getRoutesById(route_id).then((response) => {
-            // setAgencies(response.data.agencies)
+        routes_service.getRoutesById(route_id).then((response) => {            
             setTrips(response.data.tripsWithStops)
-
             const data = JSON.parse(response.data.geojson);
             setShapes(data)
             setLoading(false)
@@ -52,23 +48,19 @@ const Route_Details = () => {
             console.log(error)
         })
     }, [])
-    const divMapaRef = useRef();
-    const [map, setMap] = useState("");
-    const [geojsonKey, setgeojsonKey] = useState("");
+
     function rutas(feature, layer) {
         const randomColor = Math.floor(Math.random() * 16777215).toString(16);
         layer.setStyle({ color: `#${randomColor}` });
     }
 
-
     function map_shapes() {
         if (true) {
-            console.log(shapes.features);
             const bounds = L.geoJSON(shapes.features).getBounds();
             return (
                 <div ref={divMapaRef}>
                     <MapContainer
-                        style={{ height: "85vh", width: "100%" }}
+                        style={{ height: "50vh", width: "50%" }}
                         className="Map"
                         scrollWheelZoom={true}
                         whenCreated={setMap}
@@ -81,6 +73,15 @@ const Route_Details = () => {
                                 color="black"
                                 weight={6}
                                 onEachFeature={rutas}
+                                filter={(feature) => {
+                                    if (trip_clicked == false) {
+                                        return true;
+                                    } else if (feature.properties.shape_id === trip_clicked) {
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
+                                }}
                             />
                             <LayersControl.BaseLayer checked name="OpenStreetMap">
                                 <TileLayer
@@ -96,9 +97,11 @@ const Route_Details = () => {
         }
     }
 
-    const [selectedTrip, setSelectedTrip] = useState(null);
-
     const handleTripClick = (index, trip) => {
+        setgeojsonKey(Date.now()); // update the key to trigger the filter
+        if (trip.trip?.shapes) {
+            setTrip_clicked(trip.trip.shapes.shapeId)
+        }
         if (selectedTrip === index) {
             setSelectedTrip(null);
             // remove all markers from the map
@@ -172,9 +175,13 @@ const Route_Details = () => {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>ID</TableCell>
+                                            {/* <TableCell>ID</TableCell> */}
                                             <TableCell>tripId</TableCell>
-                                            <TableCell>tripHeadSign</TableCell>
+                                            {/* <TableCell>tripHeadSign</TableCell> */}
+                                            <TableCell>DepartureTime</TableCell>
+                                            <TableCell>From</TableCell>
+                                            <TableCell>To</TableCell>
+                                            <TableCell>ArrivalTime</TableCell>
                                         </TableRow>
                                     </TableHead>
 
@@ -185,14 +192,80 @@ const Route_Details = () => {
                                                     hover
                                                     onClick={() => handleTripClick(index, trip)}
                                                 >
-                                                    <TableCell>{trip.trip.id}</TableCell>
+                                                    {/* <TableCell>{trip.trip.id}</TableCell> */}
                                                     <TableCell>{trip.trip.tripId}</TableCell>
-                                                    <TableCell>{trip.trip.tripHeadsign}</TableCell>
+                                                    {/* <TableCell>{trip.trip.tripHeadsign}</TableCell> */}
+                                                    <TableCell>{trip.stopTimes[0].stopTime.departure_time}</TableCell>
+                                                    <TableCell>{trip.stopTimes[0].stop.stop_name}</TableCell>
+                                                    <TableCell>{trip.stopTimes[trip.stopTimes.length - 1].stop.stop_name}</TableCell>
+                                                    <TableCell>{trip.stopTimes[trip.stopTimes.length - 1].stopTime.arrival_time}</TableCell>
+
                                                 </TableRow>
+                                                {selectedTrip === index && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5}>
+                                                            <TableContainer component={Paper}>
+                                                                <Table>
+                                                                    <TableHead>
+                                                                        <TableRow>
+                                                                            <TableCell>Monday</TableCell>
+                                                                            <TableCell>Tuesday</TableCell>
+                                                                            <TableCell>Wednesday</TableCell>
+                                                                            <TableCell>Thursday</TableCell>
+                                                                            <TableCell>Friday</TableCell>
+                                                                            <TableCell>Saturday</TableCell>
+                                                                            <TableCell>Sunday</TableCell>
+                                                                        </TableRow>
+                                                                    </TableHead>
+
+                                                                    <TableBody>
+                                                                        <TableRow>
+                                                                            <TableCell>{trip.trip?.calendar?.monday ? '🟢' : '🔴'}</TableCell>
+                                                                            <TableCell>{trip.trip?.calendar?.tuesday ? '🟢' : '🔴'}</TableCell>
+                                                                            <TableCell>{trip.trip?.calendar?.wednesday ? '🟢' : '🔴'}</TableCell>
+                                                                            <TableCell>{trip.trip?.calendar?.thursday ? '🟢' : '🔴'}</TableCell>
+                                                                            <TableCell>{trip.trip?.calendar?.friday ? '🟢' : '🔴'}</TableCell>
+                                                                            <TableCell>{trip.trip?.calendar?.saturday ? '🟢' : '🔴'}</TableCell>
+                                                                            <TableCell>{trip.trip?.calendar?.sunday ? '🟢' : '🔴'}</TableCell>
+                                                                        </TableRow>
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </TableContainer>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+
+                                                {selectedTrip === index && trip.frequencies.length > 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={4}>
+                                                            <TableContainer component={Paper}>
+                                                                <Table>
+                                                                    <TableHead>
+                                                                        <TableRow>
+                                                                            <TableCell>Start Time</TableCell>
+                                                                            <TableCell>End Time</TableCell>
+                                                                            <TableCell>HeadWay Secs</TableCell>
+                                                                        </TableRow>
+                                                                    </TableHead>
+
+                                                                    <TableBody>
+                                                                        {trip.frequencies.map((frequency) => (
+                                                                            <TableRow key={frequency.id}>
+                                                                                <TableCell>{frequency.startTime}</TableCell>
+                                                                                <TableCell>{frequency.endTime}</TableCell>
+                                                                                <TableCell>{frequency.headwaySecs}" ({(frequency.headwaySecs / 60).toFixed(2)}')</TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </TableContainer>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
 
                                                 {selectedTrip === index && (
                                                     <TableRow>
-                                                        <TableCell colSpan={3}>
+                                                        <TableCell colSpan={4}>
                                                             <TableContainer component={Paper}>
                                                                 <Table>
                                                                     <TableHead>
@@ -219,6 +292,8 @@ const Route_Details = () => {
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
+
+
                                             </React.Fragment>
                                         ))}
                                     </TableBody>
