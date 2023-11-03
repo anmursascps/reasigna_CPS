@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
@@ -43,7 +44,6 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 
 import com.project.reasigna.models.*;
-import com.project.reasigna.models.Frequencies;
 import com.project.reasigna.repository.*;
 import com.project.reasigna.utils.Utils;
 
@@ -209,74 +209,73 @@ public class GtfsController {
             throws IOException, ParseException {
         long startTime = System.currentTimeMillis(); // get start time
         Gtfs gtfs = new Gtfs();
-        try (ZipInputStream zipStream = new ZipInputStream(zipInputStream.getInputStream())) {
+        try {
+            try (ZipInputStream zipStream = new ZipInputStream(zipInputStream.getInputStream())) {
 
-            File tempFile = File.createTempFile(zipInputStream.getOriginalFilename(),
-                    ".zip");
-            zipInputStream.transferTo(tempFile);
-            ZipFile zipFile = new ZipFile(tempFile);
+                File tempFile = File.createTempFile(zipInputStream.getOriginalFilename(),
+                        ".zip");
+                zipInputStream.transferTo(tempFile);
+                ZipFile zipFile = new ZipFile(tempFile);
 
-            // Get the fullpath of the zip file
-            zipFile.close();
+                // Get the fullpath of the zip file
+                zipFile.close();
 
-            Map<String, InputStream> fileStreams = new HashMap<>();
-            ZipEntry entry;
-            while ((entry = zipStream.getNextEntry()) != null) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buffer = new byte[1024];
-                int len;
-                while ((len = zipStream.read(buffer)) > -1) {
-                    baos.write(buffer, 0, len);
+                Map<String, InputStream> fileStreams = new HashMap<>();
+                ZipEntry entry;
+                while ((entry = zipStream.getNextEntry()) != null) {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[1024];
+                    int len;
+                    while ((len = zipStream.read(buffer)) > -1) {
+                        baos.write(buffer, 0, len);
+                    }
+                    baos.flush();
+
+                    InputStream is = new ByteArrayInputStream(baos.toByteArray());
+
+                    String fileName = entry.getName();
+
+                    fileStreams.put(fileName, is);
                 }
-                baos.flush();
+                Project project = projectRepository.findById(id).get();
+                gtfs = new Gtfs(gtfsName, project);
+                // try {
+                gtfsRepository.save(gtfs);
 
-                InputStream is = new ByteArrayInputStream(baos.toByteArray());
-
-                String fileName = entry.getName();
-
-                fileStreams.put(fileName, is);
-            }
-            Project project = projectRepository.findById(id).get();
-            gtfs = new Gtfs(gtfsName, project);
-            // try {
-            gtfsRepository.save(gtfs);
-
-            // Process files in specific order
-            processAgency(fileStreams.get("agency.txt"), gtfs);
-            // If it has calendar.txt then process it, if it has calendar_dates.txt then
-            // process it and if have both then process both
-            if (fileStreams.containsKey("calendar.txt") &&
-                    fileStreams.containsKey("calendar_dates.txt")) {
-                processCalendar(fileStreams.get("calendar.txt"), gtfs);
-                processCalendarDates(fileStreams.get("calendar_dates.txt"), gtfs);
-            } else {
-                if (fileStreams.containsKey("calendar.txt")) {
+                // Process files in specific order
+                processAgency(fileStreams.get("agency.txt"), gtfs);
+                if (fileStreams.containsKey("calendar.txt") && fileStreams.containsKey("calendar_dates.txt")) {
                     processCalendar(fileStreams.get("calendar.txt"), gtfs);
-                }
-                if (fileStreams.containsKey("calendar_dates.txt")) {
                     processCalendarDates(fileStreams.get("calendar_dates.txt"), gtfs);
+                } else {
+                    if (fileStreams.containsKey("calendar.txt")) {
+                        processCalendar(fileStreams.get("calendar.txt"), gtfs);
+                    }
+                    if (fileStreams.containsKey("calendar_dates.txt")) {
+                        processCalendarDates(fileStreams.get("calendar_dates.txt"), gtfs);
+                    }
                 }
-            }
-            if (fileStreams.containsKey("shapes.txt")) {
-                processShapes(fileStreams.get("shapes.txt"), gtfs);
-            }
-            processRoutes(fileStreams.get("routes.txt"), gtfs);
-            processStops(fileStreams.get("stops.txt"), gtfs);
-            processTrips(fileStreams.get("trips.txt"), gtfs);
-            if (fileStreams.containsKey("frequencies.txt")) {
-                processFrequencies(fileStreams.get("frequencies.txt"), gtfs);
-            }
-            processStopTimes(fileStreams.get("stop_times.txt"), gtfs);
+                if (fileStreams.containsKey("shapes.txt")) {
+                    processShapes(fileStreams.get("shapes.txt"), gtfs);
+                }
+                processRoutes(fileStreams.get("routes.txt"), gtfs);
+                processStops(fileStreams.get("stops.txt"), gtfs);
+                processTrips(fileStreams.get("trips.txt"), gtfs);
 
-            System.out.println("Done processing zip file");
-            long endTime = System.currentTimeMillis(); // get end time
-            long duration = endTime - startTime; // calculate duration
-            System.out.println("processAgency took " + duration + " milliseconds to execute");
-            return new ResponseEntity<>("Done processing zip file/" + gtfs.getId(), HttpStatus.OK);
+                if (fileStreams.containsKey("frequencies.txt")) {
+                    processFrequencies(fileStreams.get("frequencies.txt"), gtfs);
+                }
+
+                processStopTimes(fileStreams.get("stop_times.txt"), gtfs);
+
+                System.out.println("Done processing zip file");
+                long endTime = System.currentTimeMillis(); // get end time
+                long duration = endTime - startTime; // calculate duration
+                System.out.println("processAgency took " + duration + " milliseconds to execute");
+                return new ResponseEntity<>("Done processing zip file/" + gtfs.getId(), HttpStatus.OK);
+            }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             System.out.println("Error processing zip file");
-            e.printStackTrace();
             List<Stops> stops = stopsRepository.findByGtfs(gtfs);
             List<StopTimes> stopTimes = stopTimesRepository.findByGtfs(gtfs);
             List<Trips> trips = tripsRepository.findByGtfs(gtfs);
@@ -299,8 +298,8 @@ public class GtfsController {
             long endTime = System.currentTimeMillis(); // get end time
             long duration = endTime - startTime; // calculate duration
             System.out.println("Saving GTFS took " + duration + " milliseconds to execute");
+            return new ResponseEntity<>("Error processing zip file", HttpStatus.INTERNAL_SERVER_ERROR);
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing zip file");
         }
     }
 
@@ -321,37 +320,12 @@ public class GtfsController {
 
         List<Agency> agencies = agencyRepository.findByGtfs(gtfs);
         List<Routes> routes = routesRepository.findByGtfs(gtfs);
-        // List<Stops> stops = stopsRepository.findByGtfs(gtfs);
-        // List<Calendar> calendars = calendarRepository.findByGtfs(gtfs);
-        // List<CalendarDates> calendarDates = calendarDatesRepository.findByGtfs(gtfs);
-        // List<Shapes> shapes = shapesRepository.findByGtfs(gtfs);
-        // List<Trips> trips = tripsRepository.findByGtfs(gtfs);
-        // List<StopTimes> stopTimes = stopTimesRepository.findByGtfs(gtfs);
 
         Map<String, Object> response = new HashMap<>();
         response.put("gtfs", gtfs);
         response.put("agencies", agencies);
         response.put("routes", routes);
         response.put("geojson", shapesRepository.retrieveGeoJsonByGtfsId(id));
-
-        // response.put("stops", stops);
-        // response.put("calendars", calendars);
-        // response.put("calendarDates", calendarDates);
-        // response.put("shapes", shapes);
-        // for (Shapes shape : shapes) {
-        // shape.setLinestring(null);
-        // }
-        // response.put("trips", trips);
-
-        // // Trips has a list of routes, calendar and shapes, delete them from the
-        // // response
-        // for (Trips trip : trips) {
-        // trip.setRoutes(null);
-        // trip.setCalendar(null);
-        // trip.setShapes(null);
-        // }
-
-        // response.put("stopTimes", stopTimes);
 
         return ResponseEntity.ok(response);
     }
@@ -498,9 +472,6 @@ public class GtfsController {
             String[] header = reader.readLine().split(splitter);
             for (int i = 0; i < header.length; i++) {
                 header[i] = header[i].trim();
-            }
-            // iterate over the headers and remove utf8bom char
-            for (int i = 0; i < header.length; i++) {
                 header[i] = removeUTF8BOM(header[i]);
             }
             List<Agency> agencies = new ArrayList<>();
@@ -539,9 +510,6 @@ public class GtfsController {
             // Skip header
             for (int i = 0; i < header.length; i++) {
                 header[i] = header[i].trim();
-            }
-            // iterate over the headers and remove utf8bom char
-            for (int i = 0; i < header.length; i++) {
                 header[i] = removeUTF8BOM(header[i]);
             }
 
@@ -604,9 +572,6 @@ public class GtfsController {
             // Skip header
             for (int i = 0; i < header.length; i++) {
                 header[i] = header[i].trim();
-            }
-            // iterate over the headers and remove utf8bom char
-            for (int i = 0; i < header.length; i++) {
                 header[i] = removeUTF8BOM(header[i]);
             }
 
@@ -646,9 +611,6 @@ public class GtfsController {
             String[] header = reader.readLine().split(splitter);
             for (int i = 0; i < header.length; i++) {
                 header[i] = header[i].trim();
-            }
-            // iterate over the headers and remove utf8bom char
-            for (int i = 0; i < header.length; i++) {
                 header[i] = removeUTF8BOM(header[i]);
             }
             List<Routes> routes = new ArrayList<>();
@@ -672,7 +634,7 @@ public class GtfsController {
                     Routes route = new Routes();
                     try {
                         route.setAgency_id(agency.getAgency_id());
-                        
+
                     } catch (Exception e) {
                         if (agencyRepository.findByGtfs(g).size() == 1) {
                             route.setAgency_id(agencyRepository.findByGtfs(g).get(0).getAgency_id());
@@ -701,9 +663,6 @@ public class GtfsController {
             String[] header = reader.readLine().split(splitter);
             for (int i = 0; i < header.length; i++) {
                 header[i] = header[i].trim();
-            }
-            // iterate over the headers and remove utf8bom char
-            for (int i = 0; i < header.length; i++) {
                 header[i] = removeUTF8BOM(header[i]);
             }
 
@@ -759,9 +718,6 @@ public class GtfsController {
             String[] header = reader.readLine().split(splitter);
             for (int i = 0; i < header.length; i++) {
                 header[i] = header[i].trim();
-            }
-            // iterate over the headers and remove utf8bom char
-            for (int i = 0; i < header.length; i++) {
                 header[i] = removeUTF8BOM(header[i]);
             }
 
@@ -948,13 +904,21 @@ public class GtfsController {
                     }
                     Frequencies frequencies = new Frequencies();
                     frequencies.setTripId(values[Arrays.asList(header).indexOf("trip_id")]);
-                    frequencies.setStartTime(values[Arrays.asList(header).indexOf("start_time")]);
-                    frequencies.setEndTime(values[Arrays.asList(header).indexOf("end_time")]);
+                    DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+                    java.util.Date start_timeUtil = dateFormat
+                            .parse(values[Arrays.asList(header).indexOf("start_time")]);
+                    java.sql.Time start_time = new java.sql.Time(start_timeUtil.getTime());
+                    java.util.Date end_timeUtil = dateFormat.parse(values[Arrays.asList(header).indexOf("end_time")]);
+                    java.sql.Time end_time = new java.sql.Time(end_timeUtil.getTime());
+
+                    frequencies.setStartTime(start_time);
+                    frequencies.setEndTime(end_time);
                     frequencies
                             .setHeadwaySecs(Integer.parseInt(values[Arrays.asList(header).indexOf("headway_secs")]));
                     frequencies.setGtfs(g);
                     frequencies.setTrips(tripsMap.get(values[Arrays.asList(header).indexOf("trip_id")]));
                     frequenciesList.add(frequencies);
+                    createTripsBasedOnFrequencies(frequencies, g);
                 }
                 System.out.println("Saving frequencies...");
                 frequenciesRepository.saveAll(frequenciesList);
@@ -964,4 +928,35 @@ public class GtfsController {
 
         }
     }
+
+    public void createTripsBasedOnFrequencies(Frequencies f, Gtfs g) {
+        // Ho many trips will be between start time and end time based on the seconds of
+        // the frequency
+        // For example if the frequency is 300 seconds and the start time is 06:00:00
+        // and the end time is 07:00:00
+        // Then there will be 12 trips
+        Trips t = f.getTrips();
+        System.out.println("Creating trips based on frequencies...");
+        System.out.println("Frequency: " + f.getHeadwaySecs());
+        System.out.println("Start time: " + f.getStartTime());
+        System.out.println("End time: " + f.getEndTime());
+        int numberOfTrips = (int) ((f.getEndTime().getTime() - f.getStartTime().getTime())
+                / (f.getHeadwaySecs() * 1000)) + 1;
+        System.out.println("Number of trips: " + numberOfTrips);
+
+        for (int i = 0; i < numberOfTrips; i++) {
+            Trips trip = new Trips();
+            trip.setCalendar(t.getCalendar());
+            trip.setDirectionId(t.getDirectionId());
+            trip.setGtfs(g);
+            trip.setRoutes(t.getRoutes());
+            trip.setShapes(t.getShapes());
+            trip.setTripHeadsign(t.getTripHeadsign());
+            trip.setTripId(t.getTripId() + "_" + i);
+            tripsRepository.save(trip);
+            
+        }
+
+    }
+
 }

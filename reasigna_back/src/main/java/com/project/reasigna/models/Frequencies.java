@@ -17,6 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.sql.Time;
 import java.util.List;
 
 import org.mapdb.Atomic.Integer;
@@ -38,10 +39,10 @@ public class Frequencies {
     private String tripId;
 
     @Column(name = "start_time", nullable = false)
-    private String startTime;
+    private Time startTime;
 
     @Column(name = "end_time", nullable = false)
-    private String endTime;
+    private Time endTime;
 
     @Column(name = "headway_secs", nullable = false)
     private int headwaySecs;

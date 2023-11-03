@@ -12,6 +12,7 @@ const Upload = () => {
 
   const [selectedFiles, setSelectedFiles] = useState(undefined);
   const [message, setMessage] = useState([]);
+  const [errorMessage, setErrorMessage] = useState([]);
   const [summary, setSummary] = useState([]);
   const [loadingGtfs, setLoadingGtfs] = useState(false);
   const [valid, setValid] = useState(true);
@@ -31,13 +32,10 @@ const Upload = () => {
     gtfs_service.createZip(currentFile)
       .then((response) => {
         setLoadingGtfs(false);
-        console.log(response)
         if (response.data) {
           setMessage(response.data.notices)
           setSummary(response.data.summary)
           setValid(response.data.OK)
-          console.log(response.data.summary)
-          console.log(response.data.notices)
         }
       })
       .catch((error) => {
@@ -56,7 +54,6 @@ const Upload = () => {
     setOpen(false);
     let currentFile = selectedFiles[0];
     setSelectedFiles(undefined);
-    console.log(id)
     gtfs_service.saveOnDatabase(currentFile, name, id).then((response) => {
       setLoadingGtfs(false);
       setOpenSnackbar(true);
@@ -66,7 +63,8 @@ const Upload = () => {
       navigate(`/gtfs/${gtfs_id}`)
     }).catch((error) => {
       console.log(error)
-      setMessage(error.status);
+      setErrorMessage(error.response.data);
+      setLoadingGtfs(false);
     });
   };
 
@@ -260,6 +258,7 @@ const Upload = () => {
               onClick={() => setOpen(true)}
             >Guradar GTFS en base de datos</Button>
             <div>{messageE()}</div>
+            <div>{errorMessage}</div>
           </div>
         </Container>
       </Box>
