@@ -26,4 +26,7 @@ public interface AgencyRepository extends JpaRepository<Agency, Long> {
     Agency findByGtfsId(Gtfs gtfs);
 
     void deleteByGtfs(Gtfs gtfs);
+
+    @Query(value = "SELECT id FROM agency WHERE gtfs_id = ?1", nativeQuery = true)
+    List<Long> findIdsByGtfs(Long gtfs);
 }

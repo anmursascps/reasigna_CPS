@@ -46,7 +46,7 @@ public class Routes {
     // Many to one relationship with agency
     @ManyToOne(cascade = CascadeType.DETACH)
     @JoinColumn(name = "agency", nullable = true)
-    @JsonIgnore
+    // @JsonIgnore
     private Agency agency;
 
     @Column(name = "agency_id", nullable = true)

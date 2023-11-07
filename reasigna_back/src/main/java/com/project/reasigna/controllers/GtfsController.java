@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
+import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.io.FileUtils;
 import org.json.JSONObject;
 import org.locationtech.jts.geom.Coordinate;
@@ -46,6 +46,8 @@ import org.locationtech.jts.geom.GeometryFactory;
 import com.project.reasigna.models.*;
 import com.project.reasigna.repository.*;
 import com.project.reasigna.utils.Utils;
+
+import java.sql.Time;
 
 @RestController
 @RequestMapping("/api/upload")
@@ -261,12 +263,11 @@ public class GtfsController {
                 processRoutes(fileStreams.get("routes.txt"), gtfs);
                 processStops(fileStreams.get("stops.txt"), gtfs);
                 processTrips(fileStreams.get("trips.txt"), gtfs);
+                processStopTimes(fileStreams.get("stop_times.txt"), gtfs);
 
                 if (fileStreams.containsKey("frequencies.txt")) {
                     processFrequencies(fileStreams.get("frequencies.txt"), gtfs);
                 }
-
-                processStopTimes(fileStreams.get("stop_times.txt"), gtfs);
 
                 System.out.println("Done processing zip file");
                 long endTime = System.currentTimeMillis(); // get end time
@@ -275,6 +276,7 @@ public class GtfsController {
                 return new ResponseEntity<>("Done processing zip file/" + gtfs.getId(), HttpStatus.OK);
             }
         } catch (Exception e) {
+            System.out.println(e);
             System.out.println("Error processing zip file");
             List<Stops> stops = stopsRepository.findByGtfs(gtfs);
             List<StopTimes> stopTimes = stopTimesRepository.findByGtfs(gtfs);
@@ -325,7 +327,16 @@ public class GtfsController {
         response.put("gtfs", gtfs);
         response.put("agencies", agencies);
         response.put("routes", routes);
-        response.put("geojson", shapesRepository.retrieveGeoJsonByGtfsId(id));
+        String geojson = shapesRepository.retrieveGeoJsonByGtfsId(id);
+        // Add the ids of the trips that use the shape
+        JSONObject geojsonObject = new JSONObject(geojson);
+        for (int i = 0; i < geojsonObject.getJSONArray("features").length(); i++) {
+            JSONObject feature = geojsonObject.getJSONArray("features").getJSONObject(i);
+            Long shape_id = feature.getJSONObject("properties").getLong("id");
+            List<Long> trips = shapesRepository.findTripsByShape(shape_id, id);
+            feature.getJSONObject("properties").put("trips", trips);
+        }
+        response.put("geojson", geojsonObject.toString());
 
         return ResponseEntity.ok(response);
     }
@@ -350,118 +361,59 @@ public class GtfsController {
         System.out.println(id);
         long startTime = System.currentTimeMillis(); // get start time
 
-        Gtfs gtfs = gtfsRepository.findById(id).orElse(null);
-        if (gtfs == null) {
+        Gtfs gtfs_ = gtfsRepository.findById(id).orElse(null);
+        if (gtfs_ == null) {
             return new ResponseEntity<>("Gtfs not found", HttpStatus.NOT_FOUND);
         }
 
-        List<Stops> stops = stopsRepository.findByGtfs(gtfs);
-        System.out.println(stops.size() + " stops found");
+        Long gtfs = gtfs_.getId();
 
-        List<StopTimes> stopTimes = stopTimesRepository.findByGtfs(gtfs);
-        System.out.println(stopTimes.size() + " stopTimes found");
+        // Get all related entities in one query for each type
+        List<Long> stopIds = stopsRepository.findIdsByGtfs(gtfs);
+        List<Long> stopTimeIds = stopTimesRepository.findIdsByGtfs(gtfs);
+        List<Long> tripIds = tripsRepository.findIdsByGtfs(gtfs);
+        List<Long> shapeIds = shapesRepository.findIdsByGtfs(gtfs);
+        List<Long> calendarDateIds = calendarDatesRepository.findIdsByGtfs(gtfs);
+        List<Long> calendarIds = calendarRepository.findIdsByGtfs(gtfs);
+        List<Long> routeIds = routesRepository.findIdsByGtfs(gtfs);
+        List<Long> agencyIds = agencyRepository.findIdsByGtfs(gtfs);
+        List<Long> frequencyIds = frequenciesRepository.findIdsByGtfs(gtfs);
 
-        List<Trips> trips = tripsRepository.findByGtfs(gtfs);
-        System.out.println(trips.size() + " trips found");
+        int batchSize = 2500;
 
-        List<Shapes> shapes = shapesRepository.findByGtfs(gtfs);
-        System.out.println(shapes.size() + " shapes found");
+        // Delete related entities using bulk deletion
+        deleteEntitiesInBatches("stop_times", stopTimeIds, batchSize);
+        deleteEntitiesInBatches("stops", stopIds, batchSize);
+        deleteEntitiesInBatches("shapes", shapeIds, batchSize);
+        deleteEntitiesInBatches("calendar_dates", calendarDateIds, batchSize);
+        deleteEntitiesInBatches("calendar", calendarIds, batchSize);
+        deleteEntitiesInBatches("routes", routeIds, batchSize);
+        deleteEntitiesInBatches("agency", agencyIds, batchSize);
+        deleteEntitiesInBatches("frequencies", frequencyIds, batchSize);
+        deleteEntitiesInBatches("trips", tripIds, batchSize);
 
-        List<CalendarDates> calendarDates = calendarDatesRepository.findByGtfs(gtfs);
-        System.out.println(calendarDates.size() + " calendarDates found");
+        // Delete the Gtfs entity
+        gtfsRepository.delete(gtfs_);
 
-        List<Calendar> calendars = calendarRepository.findByGtfs(gtfs);
-        System.out.println(calendars.size() + " calendars found");
-
-        List<Routes> routes = routesRepository.findByGtfs(gtfs);
-        System.out.println(routes.size() + " routes found");
-
-        List<Agency> agencies = agencyRepository.findByGtfs(gtfs);
-        System.out.println(agencies.size() + " agencies found");
-
-        List<Frequencies> frequencies = frequenciesRepository.findByGtfs(gtfs);
-        System.out.println(frequencies.size() + " frequencies found");
-
-        int batchSize = 250000;
-
-        for (int i = 0; i < stopTimes.size(); i += batchSize) {
-            List<StopTimes> batch = stopTimes.subList(i, Math.min(i + batchSize, stopTimes.size()));
-            String sql = "DELETE FROM stop_times WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " stopTimes deleted");
-        }
-
-        for (int i = 0; i < stops.size(); i += batchSize) {
-            List<Stops> batch = stops.subList(i, Math.min(i + batchSize, stops.size()));
-            String sql = "DELETE FROM stops WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " stops deleted");
-        }
-
-        for (int i = 0; i < shapes.size(); i += batchSize) {
-            List<Shapes> batch = shapes.subList(i, Math.min(i + batchSize, shapes.size()));
-            String sql = "DELETE FROM shapes WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " shapes deleted");
-        }
-
-        for (int i = 0; i < calendarDates.size(); i += batchSize) {
-            List<CalendarDates> batch = calendarDates.subList(i, Math.min(i + batchSize, calendarDates.size()));
-            String sql = "DELETE FROM calendar_dates WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " calendarDates deleted");
-        }
-
-        for (int i = 0; i < calendars.size(); i += batchSize) {
-            List<Calendar> batch = calendars.subList(i, Math.min(i + batchSize, calendars.size()));
-            String sql = "DELETE FROM calendar WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " calendars deleted");
-        }
-
-        for (int i = 0; i < routes.size(); i += batchSize) {
-            List<Routes> batch = routes.subList(i, Math.min(i + batchSize, routes.size()));
-            String sql = "DELETE FROM routes WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " routes deleted");
-        }
-
-        for (int i = 0; i < agencies.size(); i += batchSize) {
-            List<Agency> batch = agencies.subList(i, Math.min(i + batchSize, agencies.size()));
-            String sql = "DELETE FROM agency WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " agencies deleted");
-        }
-
-        for (int i = 0; i < frequencies.size(); i += batchSize) {
-            List<Frequencies> batch = frequencies.subList(i, Math.min(i + batchSize, frequencies.size()));
-            String sql = "DELETE FROM frequencies WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " frequencies deleted");
-        }
-
-        for (int i = 0; i < trips.size(); i += batchSize) {
-            List<Trips> batch = trips.subList(i, Math.min(i + batchSize, trips.size()));
-            String sql = "DELETE FROM trips WHERE id IN ("
-                    + batch.stream().map(st -> st.getId().toString()).collect(Collectors.joining(",")) + ")";
-            jdbcTemplate.update(sql);
-            System.out.println(batch.size() + " trips deleted");
-        }
-
-        gtfsRepository.delete(gtfs);
         long endTime = System.currentTimeMillis(); // get end time
         long duration = endTime - startTime; // calculate duration
-        System.out.println("Deleting GTFS took " + duration + " milliseconds to execute");
+        System.out.println("Deleting GTFS (" + gtfs + ") took " + duration + " milliseconds to execute");
+        System.out.println("######################################################");
 
         return new ResponseEntity<>("Gtfs deleted", HttpStatus.OK);
+    }
+
+    private void deleteEntitiesInBatches(String tableName, List<Long> entityIds, int batchSize) {
+        System.out.println("Deleting " + entityIds.size() + " " + tableName + " entities in batches of " + batchSize);
+        for (int i = 0; i < entityIds.size(); i += batchSize) {
+            List<Long> batch = entityIds.subList(i, Math.min(i + batchSize, entityIds.size()));
+            String sql = "DELETE FROM " + tableName + " WHERE id IN ("
+                    + String.join(",", batch.stream().map(Object::toString).toArray(String[]::new)) + ")";
+            jdbcTemplate.update(sql);
+        }
+        System.out.println(
+                "Finished deleting " + entityIds.size() + " " + tableName + " entities in batches of " + batchSize);
+        System.out.println("================================================================");
     }
 
     public void processAgency(InputStream agencyStream, Gtfs g) throws IOException {
@@ -782,7 +734,7 @@ public class GtfsController {
                                 .findByshapeIdAndGtfs(values[Arrays.asList(header).indexOf("shape_id")], g);
                         trips.setShapes(s);
                     } catch (Exception e) {
-                        System.out.println("No shape found");
+                        // System.out.println("No shape found");
                     }
                     // Check if has trip_headsign and set it
                     if (Arrays.asList(header).contains("trip_headsign")) {
@@ -856,16 +808,16 @@ public class GtfsController {
                         stopTimesList.add(stopTimes);
                         counter++; // increment the counter
                         if (counter == batchSize) { // if the counter reaches the batch size
-                            // System.out.println("Saving stop_times...");
+                            System.out.println("Saving stop_times...");
                             String sql = "INSERT INTO stop_times (arrival_time, departure_time, stop_id, trip_id, stop_sequence, gtfs_id) VALUES (?, ?, ?, ?, ?, ?)";
                             jdbcTemplate.batchUpdate(sql, stopTimesList); // save the list of StopTimes objects
-                            // System.out.println(stopTimesList.size() + " stop_times saved");
-                            // System.out.println("==============");
+                            System.out.println(stopTimesList.size() + " stop_times saved");
+                            System.out.println("==============");
                             stopTimesList.clear(); // clear the list
                             counter = 0; // reset the counter
                         }
                     } catch (Exception e) {
-                        // System.out.println(e.getMessage());
+                        System.out.println(e.getMessage());
                     }
                 }
                 if (!stopTimesList.isEmpty()) { // if there are any remaining StopTimes objects in the list
@@ -918,7 +870,6 @@ public class GtfsController {
                     frequencies.setGtfs(g);
                     frequencies.setTrips(tripsMap.get(values[Arrays.asList(header).indexOf("trip_id")]));
                     frequenciesList.add(frequencies);
-                    createTripsBasedOnFrequencies(frequencies, g);
                 }
                 System.out.println("Saving frequencies...");
                 frequenciesRepository.saveAll(frequenciesList);
@@ -926,35 +877,77 @@ public class GtfsController {
                 System.out.println("==============");
             }
 
+            createTripsBasedOnFrequencies(g);
         }
     }
 
-    public void createTripsBasedOnFrequencies(Frequencies f, Gtfs g) {
-        // Ho many trips will be between start time and end time based on the seconds of
-        // the frequency
-        // For example if the frequency is 300 seconds and the start time is 06:00:00
-        // and the end time is 07:00:00
-        // Then there will be 12 trips
-        Trips t = f.getTrips();
-        System.out.println("Creating trips based on frequencies...");
-        System.out.println("Frequency: " + f.getHeadwaySecs());
-        System.out.println("Start time: " + f.getStartTime());
-        System.out.println("End time: " + f.getEndTime());
-        int numberOfTrips = (int) ((f.getEndTime().getTime() - f.getStartTime().getTime())
-                / (f.getHeadwaySecs() * 1000)) + 1;
-        System.out.println("Number of trips: " + numberOfTrips);
+    public void createTripsBasedOnFrequencies(Gtfs g) {
+        List<Frequencies> frequencies = frequenciesRepository.findByGtfs(g);
+        List<Trips> trips = new ArrayList<>();
+        List<StopTimes> stopTimes = new ArrayList<>();
+        for (Frequencies frequency : frequencies) {
+            Trips t = frequency.getTrips();
+            int numberOfTrips = (int) ((frequency.getEndTime().getTime() - frequency.getStartTime().getTime())
+                    / (frequency.getHeadwaySecs() * 1000)) + 1;
 
-        for (int i = 0; i < numberOfTrips; i++) {
-            Trips trip = new Trips();
-            trip.setCalendar(t.getCalendar());
-            trip.setDirectionId(t.getDirectionId());
-            trip.setGtfs(g);
-            trip.setRoutes(t.getRoutes());
-            trip.setShapes(t.getShapes());
-            trip.setTripHeadsign(t.getTripHeadsign());
-            trip.setTripId(t.getTripId() + "_" + i);
-            tripsRepository.save(trip);
-            
+            for (int i = 0; i < numberOfTrips; i++) {
+                int secs = frequency.getHeadwaySecs() * 1000;
+                secs = secs * i;
+                Trips trip = new Trips();
+                try {
+                    trip.setCalendar(t.getCalendar());
+                    trip.setDirectionId(t.getDirectionId());
+                    trip.setGtfs(t.getGtfs());
+                    trip.setRoutes(t.getRoutes());
+                    trip.setShapes(t.getShapes());
+                    trip.setTripHeadsign(t.getTripHeadsign());
+                    trip.setTripId(t.getTripId() + "_" + i);
+                    trips.add(trip);
+                    List<StopTimes> stopTimesForTrip = stopTimesRepository.findByTrips(t);
+                    for (StopTimes stopTime : stopTimesForTrip) {
+                        StopTimes stopTime2 = new StopTimes();
+                        stopTime2.setGtfs(g);
+                        stopTime2.setStop_sequence(stopTime.getStop_sequence());
+                        stopTime2.setStops(stopTime.getStops());
+                        stopTime2.setTrips(trip);
+                        stopTime2.setArrival_time(
+                                new java.sql.Time(
+                                        frequency.getStartTime().getTime()
+                                                + (stopTime.getArrival_time().getTime()
+                                                        - new java.sql.Time(0).getTime())
+                                                + secs + 3600000));
+                        stopTime2.setDeparture_time(
+                                new java.sql.Time(
+                                        frequency.getStartTime().getTime()
+                                                + (stopTime.getDeparture_time().getTime()
+                                                        - new java.sql.Time(0).getTime())
+                                                + secs + 3600000));
+                        stopTimes.add(stopTime2);
+                    }
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+
+            }
+        }
+        if (!trips.isEmpty()) {
+            int batchSize = 75000;
+            for (int i = 0; i < trips.size(); i += batchSize) {
+                int end = Math.min(trips.size(), i + batchSize);
+                List<Trips> batchList = trips.subList(i, end);
+                tripsRepository.saveAll(batchList);
+                System.out.println("Batch inserted " + batchList.size() + " trips");
+            }
+        }
+
+        if (!stopTimes.isEmpty()) {
+            int batchSize = 75000;
+            for (int i = 0; i < stopTimes.size(); i += batchSize) {
+                int end = Math.min(stopTimes.size(), i + batchSize);
+                List<StopTimes> batchList = stopTimes.subList(i, end);
+                stopTimesRepository.saveAll(batchList);
+                System.out.println("Batch inserted " + batchList.size() + " stop times");
+            }
         }
 
     }

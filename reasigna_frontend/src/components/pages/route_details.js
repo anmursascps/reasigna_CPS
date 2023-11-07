@@ -50,8 +50,7 @@ const Route_Details = () => {
     }, [])
 
     function rutas(feature, layer) {
-        const randomColor = Math.floor(Math.random() * 16777215).toString(16);
-        layer.setStyle({ color: `#${randomColor}` });
+        
     }
 
     function map_shapes() {
@@ -120,7 +119,7 @@ const Route_Details = () => {
                 }
             });
             // iterate over trip.stopTimes and add the markers to the map
-            trip.stopTimes.forEach((stopTime) => {
+            trip?.stopTimes.forEach((stopTime) => {
                 const marker = L.marker([
                     stopTime.stop.stop_lat,
                     stopTime.stop.stop_lon,
@@ -131,6 +130,7 @@ const Route_Details = () => {
             });
         }
     };
+    
 
     return (
         <DashboardLayout>
@@ -195,10 +195,10 @@ const Route_Details = () => {
                                                     {/* <TableCell>{trip.trip.id}</TableCell> */}
                                                     <TableCell>{trip.trip.tripId}</TableCell>
                                                     {/* <TableCell>{trip.trip.tripHeadsign}</TableCell> */}
-                                                    <TableCell>{trip.stopTimes[0].stopTime.departure_time}</TableCell>
-                                                    <TableCell>{trip.stopTimes[0].stop.stop_name}</TableCell>
-                                                    <TableCell>{trip.stopTimes[trip.stopTimes.length - 1].stop.stop_name}</TableCell>
-                                                    <TableCell>{trip.stopTimes[trip.stopTimes.length - 1].stopTime.arrival_time}</TableCell>
+                                                    <TableCell>{trip?.stopTimes[0]?.stopTime.departure_time}</TableCell>
+                                                    <TableCell>{trip?.stopTimes[0]?.stop.stop_name}</TableCell>
+                                                    <TableCell>{trip?.stopTimes[trip.stopTimes.length - 1]?.stop.stop_name}</TableCell>
+                                                    <TableCell>{trip?.stopTimes[trip.stopTimes.length - 1]?.stopTime.arrival_time}</TableCell>
 
                                                 </TableRow>
                                                 {selectedTrip === index && (

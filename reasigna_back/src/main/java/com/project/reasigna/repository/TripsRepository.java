@@ -25,4 +25,7 @@ public interface TripsRepository extends JpaRepository<Trips, Long> {
     @Query(value = "SELECT jsonb_build_object('type','FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)\\:\\:json))\\:\\:text FROM (SELECT * FROM shapes WHERE id IN (SELECT shape_id FROM trips WHERE route_id=?1 AND gtfs_id=?2)) as t", nativeQuery = true)
     String findByRouteIdAndGtfs(Long route_id, Long gtfs_id);
 
+    @Query(value = "SELECT id FROM trips WHERE gtfs_id = ?1", nativeQuery = true)
+    List<Long> findIdsByGtfs(Long gtfs);
+
 }

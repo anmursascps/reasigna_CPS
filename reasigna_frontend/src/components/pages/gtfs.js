@@ -31,8 +31,6 @@ const Gtfs = () => {
         setPage(newPage);
     };
 
-
-
     const handleClose = () => {
         setOpen(false)
     }
@@ -52,7 +50,6 @@ const Gtfs = () => {
     }
 
     const createGtfs = () => {
-        // String to int
         var gtfs = {
             gtfsName: gtfsName,
             project: {
@@ -152,7 +149,7 @@ const Gtfs = () => {
                                                             >
                                                                 <Edit />
                                                             </IconButton>
-                                                            <IconButton onClick={() => navigate(`/gtfs/${gtfss.id}`)} color="primary" variant="contained">
+                                                            <IconButton onClick={() => navigate(`gtfs/${gtfss.id}`)} color="primary" variant="contained">
                                                                 <Visibility />
                                                             </IconButton>
                                                             <IconButton

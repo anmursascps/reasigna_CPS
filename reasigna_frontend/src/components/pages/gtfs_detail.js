@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Container, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Backdrop, Box, Button, CircularProgress, Container, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
 import gtfs_service from '../../services/gtfs_service'
 import { DashboardLayout } from '../dashboard/dashboard-layout'
@@ -17,18 +17,21 @@ const Gtfs_Details = () => {
 
     let navigate = useNavigate();
 
-    const { id } = useParams()
+    const { g_id } = useParams()
+    const { p_id } = useParams()
 
     const [routes, setRoutes] = useState([])
     const [agencies, setAgencies] = useState([])
     const [json, setJson] = useState([])
     const [map, setMap] = useState("");
     const [geojsonKey, setgeojsonKey] = useState("");
+    const [loading, setLoading] = useState(true);
 
     const divMapaRef = useRef();
 
     useEffect(() => {
-        gtfs_service.getGtfsById(id).then((response) => {
+        gtfs_service.getGtfsById(g_id).then((response) => {
+            setLoading(false)
             setRoutes(response.data.routes)
             setAgencies(response.data.agencies)
             const data = JSON.parse(response.data.geojson)
@@ -39,23 +42,17 @@ const Gtfs_Details = () => {
     }, [])
 
     function rutas(feature, layer) {
-        const randomColor = Math.floor(Math.random() * 16777215).toString(16);
-        layer.setStyle({ color: `#${randomColor}` });
+        // const randomColor = Math.floor(Math.random() * 16777215).toString(16);
+        // layer.setStyle({ color: `#${randomColor}` });
+        console.log(feature)
 
         // Add onClick event to the layer
-        layer.on('click', function (e) {
-            // Create a popup with information about the feature
-            const popupContent = `
-                <div>
-                    <h3>${feature.properties.shape_id}</h3>
-                    <p>Some information about the feature</p>
-                </div>
-            `;
-            L.popup()
-                .setLatLng(e.latlng)
-                .setContent(popupContent)
-                .openOn(map);
-        });
+        layer.bindPopup(feature.properties.id + " - " + feature.properties.shape_id)
+        layer.bindPopup(feature.properties.trips.map((trip) => {
+            return trip
+        }).join("<br>"))
+
+
     }
 
     function map_shapes() {
@@ -64,7 +61,7 @@ const Gtfs_Details = () => {
             return (
                 <div ref={divMapaRef}>
                     <MapContainer
-                        style={{ height: "50vh", width: "50%" }}
+                        style={{ height: "100vh", width: "100%" }}
                         className="Map"
                         scrollWheelZoom={true}
                         whenCreated={setMap}
@@ -74,8 +71,8 @@ const Gtfs_Details = () => {
                             <GeoJSON
                                 key={geojsonKey}
                                 data={json.features}
-                                color="black"
-                                weight={3}
+                                color="red"
+                                weight={5}
                                 onEachFeature={rutas}
                             />
                             <LayersControl.BaseLayer checked name="OpenStreetMap">
@@ -93,15 +90,38 @@ const Gtfs_Details = () => {
     }
 
 
+    const getRouteType = (type) => {
+        switch (type) {
+            case "0":
+                return 'Tram';
+            case "1":
+                return 'Subway';
+            case "2":
+                return 'Rail';
+            case "3":
+                return 'Bus';
+            case "4":
+                return 'Ferry';
+            case "5":
+                return 'Cable car';
+            case "6":
+                return 'Gondola';
+            case "7":
+                return 'Funicular';
+            case "11":
+                return 'Trolleybus';
+            case "12":
+                return 'Monorail';
+            default:
+                return '';
+        }
+    };
+
     const columns = useMemo(
         () => [
             {
                 Header: 'ID',
                 accessor: 'id',
-            },
-            {
-                Header: 'routeId',
-                accessor: 'routeId',
             },
             {
                 Header: 'route_short_name',
@@ -110,10 +130,15 @@ const Gtfs_Details = () => {
             {
                 Header: 'route_type',
                 accessor: 'route_type',
+                Cell: ({ value }) => getRouteType(value),
             },
             {
                 Header: 'agency_id',
-                accessor: 'agency_id',
+                accessor: 'agency.agency_name',
+            },
+            {
+                Header: 'agency_url',
+                accessor: 'agency.agency_url',
             },
         ],
         []
@@ -150,9 +175,9 @@ const Gtfs_Details = () => {
                         }}
                     >
                         <Typography sx={{ m: 1 }} variant="h4">
-                            GTFS - {id}
+                            GTFS - {g_id}
                         </Typography>
-                        <Button sx={{ m: 1 }} variant="contained" onClick={() => navigate(-1)}>
+                        <Button sx={{ m: 1 }} variant="contained" onClick={() => navigate(`/proyectos/${p_id}/`)}>
                             <p>Back</p>
                         </Button>
                     </Box>
@@ -172,7 +197,7 @@ const Gtfs_Details = () => {
                                                 <TableCell {...column.getHeaderProps(column.getSortByToggleProps())}>
                                                     {column.render('Header')}
                                                     <span>
-                                                        {column.isSorted ? (column.isSortedDesc ? ' 🔽' : ' 🔼') : ''}
+                                                        {column.isSorted ? (column.isSortedDesc ? '\n   🔽' : '   🔼') : ''}
                                                     </span>
                                                 </TableCell>
                                             ))}
@@ -184,7 +209,7 @@ const Gtfs_Details = () => {
                                     {rows.map((row) => {
                                         prepareRow(row);
                                         return (
-                                            <TableRow hover onClick={() => navigate(`/gtfs/${id}/route/${row.original.id}`)} {...row.getRowProps()}>
+                                            <TableRow hover onClick={() => navigate(`/gtfs/${g_id}/route/${row.original.id}`)} {...row.getRowProps()}>
                                                 {row.cells.map((cell) => (
                                                     <TableCell {...cell.getCellProps()}>{cell.render('Cell')}</TableCell>
                                                 ))}
@@ -197,6 +222,13 @@ const Gtfs_Details = () => {
                     </Paper>
                 </Container>
             </Box>
+            <Backdrop
+                sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+                open={loading}
+            >
+                <CircularProgress color="inherit" />
+            </Backdrop>
+
         </DashboardLayout>
     );
 }

@@ -60,7 +60,7 @@ const Upload = () => {
       var gtfs_id = response.data
       gtfs_id = gtfs_id.split("/")
       gtfs_id = gtfs_id[gtfs_id.length - 1]
-      navigate(`/gtfs/${gtfs_id}`)
+      navigate(`/proyectos/${id}/gtfs/${gtfs_id}`)
     }).catch((error) => {
       console.log(error)
       setErrorMessage(error.response.data);

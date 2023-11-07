@@ -25,4 +25,11 @@ public interface ShapesRepository extends JpaRepository<Shapes, Long> {
     @Query(value = "SELECT jsonb_build_object('type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)\\:\\:json))\\:\\:text FROM (SELECT * FROM shapes WHERE gtfs_id=?1) as t", nativeQuery = true)
     String retrieveGeoJsonByGtfsId(Long gtfs_id);
 
+    @Query(value = "SELECT shape_id FROM shapes WHERE gtfs_id = ?1", nativeQuery = true)
+    List<Long> findIdsByGtfs(Long gtfs);
+
+    // get the list of trips that use a shape
+    @Query(value = "SELECT DISTINCT id FROM trips WHERE shape_id = ?1 AND gtfs_id = ?2", nativeQuery = true)
+    List<Long> findTripsByShape(Long shape_id, Long gtfs_id);
+
 }

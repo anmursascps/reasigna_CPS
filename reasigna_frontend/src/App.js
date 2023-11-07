@@ -15,7 +15,7 @@ function App() {
           <Route path="/" element={<Stats />}></Route>
           <Route path="/proyectos" element={<Project />}></Route>
           <Route path="/proyectos/:id" element={<Gtfs />}></Route>
-          <Route path="/gtfs/:id" element={<GtfsDetails />}></Route>
+          <Route path="/proyectos/:p_id/gtfs/:g_id" element={<GtfsDetails />}></Route>
           <Route path="/gtfs/:id/route/:route_id" element={<RouteDetails />}></Route>
           <Route path="/proyectos/:id/gtfs" element={<Upload />}></Route>
           <Route path="/upload" element={<Upload />}></Route>
